@@ -27,6 +27,7 @@ contract Escrow {
     mapping(uint256 _tokenId => uint256 _escrowAmount) public escrowAmount;
     mapping(uint256 _tokenId => bool _passed) public inspectionPassed;
     mapping(uint256 _tokenId => mapping(address approver => bool)) public approval;
+    mapping(uint256 _tokenId => uint256 _escrowBalance) public escrowBalance;
 
     // MODIFIERS
     modifier onlySeller() {
@@ -41,6 +42,11 @@ contract Escrow {
 
     modifier onlyInspector() {
         require(msg.sender == inspector, "Only inspector can call this function");
+        _;
+    }
+
+    modifier onlyLender() {
+        require(msg.sender == lender, "Only lender can call this function");
         _;
     }
     // FUNCTIONS
@@ -69,6 +75,15 @@ contract Escrow {
 
     function depositDownPayment(uint256 _tokenId) public payable onlyBuyer(_tokenId) {
         require(msg.value == escrowAmount[_tokenId], "Deposit exact amount");
+        escrowBalance[_tokenId] += msg.value;
+    }
+
+    function lenderDeposit(uint256 _tokenId) public payable onlyLender {
+        require(inspectionPassed[_tokenId] == true, "Inspection must pass");
+        require(address(this).balance >= escrowAmount[_tokenId], "Down payment from buyer must be deposited first");
+        require(msg.value == purchasePrice[_tokenId] - escrowAmount[_tokenId], "Deposit exact amount");
+
+        escrowBalance[_tokenId] += msg.value;
     }
 
     function updateInspectionStatus(uint256 _tokenId, bool _passed) public onlyInspector {
@@ -84,9 +99,10 @@ contract Escrow {
         require(approval[_tokenId][buyer[_tokenId]]);
         require(approval[_tokenId][seller]);
         require(approval[_tokenId][lender]);
-        require(address(this).balance >= purchasePrice[_tokenId]);
+        require(escrowBalance[_tokenId] >= purchasePrice[_tokenId]);
+        escrowBalance[_tokenId] -= purchasePrice[_tokenId];
 
-        (bool success,) = payable(seller).call{value: address(this).balance}("");
+        (bool success,) = payable(seller).call{value: purchasePrice[_tokenId]}("");
         if (!success) {
             revert Escrow__TransactionFailed();
         }
@@ -119,7 +135,7 @@ contract Escrow {
         return approval[_tokenId][msg.sender];
     }
 
-    function getEscrowEtherBalance() external view returns (uint256 _contractBalace) {
-        return address(this).balance;
+    function getEscrowEtherBalance(uint256 _tokenId) external view returns (uint256 _contractBalace) {
+        return escrowBalance[_tokenId];
     }
 }

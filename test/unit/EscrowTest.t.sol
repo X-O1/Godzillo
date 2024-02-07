@@ -37,7 +37,7 @@ contract EscrowTest is Test {
         vm.deal(INSPECTOR, 10 ether);
         vm.deal(LENDER, 10 ether);
         vm.deal(APPRAISER, 10 ether);
-        vm.deal(0xA8452Ec99ce0C64f20701dB7dD3abDb607c00496, 10 ether);
+        vm.deal(0xA8452Ec99ce0C64f20701dB7dD3abDb607c00496, 1 ether);
     }
 
     function testMintingNft() public {
@@ -56,7 +56,7 @@ contract EscrowTest is Test {
         realEstate.approve(escrowContract, 1);
 
         vm.prank(SELLER);
-        escrow.listProperty(1, BUYER, 1 ether, 0.5 ether);
+        escrow.listProperty(1, BUYER, 1 ether, 0.01 ether);
     }
 
     function testListingStatusUpdates() public {
@@ -83,7 +83,7 @@ contract EscrowTest is Test {
         vm.prank(BUYER);
         escrow.depositDownPayment{value: 0.5 ether}(1);
 
-        assertEq(escrow.getEscrowEtherBalance(), 0.5 ether);
+        assertEq(escrow.getEscrowEtherBalance(1), 0.5 ether);
     }
 
     function testInpectorUpdates() public {
@@ -144,6 +144,9 @@ contract EscrowTest is Test {
         escrow.updateInspectionStatus(1, true);
 
         vm.prank(LENDER);
+        escrow.lenderDeposit{value: 0.5 ether}(1);
+
+        vm.prank(LENDER);
         escrow.approveSale(1);
 
         vm.prank(SELLER);
@@ -154,5 +157,9 @@ contract EscrowTest is Test {
 
         vm.prank(LENDER);
         escrow.finalizeSale(1);
+
+        assertEq(realEstate.ownerOf(1), BUYER);
+
+        assertEq(escrow.getEscrowEtherBalance(1), 0 ether);
     }
 }
